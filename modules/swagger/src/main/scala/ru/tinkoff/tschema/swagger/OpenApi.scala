@@ -150,7 +150,9 @@ final case class OpenApiParam(
     required: Boolean = true,
     schema: Option[SwaggerType] = None,
     deprecated: Boolean = false,
-    allowEmptyValue: Boolean = false
+    allowEmptyValue: Boolean = false,
+    style: Option[OpenApiParam.Style] = None,
+    explode: Option[Boolean] = None
 )
 
 object OpenApiParam {
@@ -164,6 +166,24 @@ object OpenApiParam {
     case object path     extends In
     case object cookie   extends In
     case object formData extends In
+  }
+
+  sealed trait Style extends EnumEntry
+
+  sealed trait PathStyle   extends Style
+  sealed trait QueryStyle  extends Style
+  sealed trait HeaderStyle extends Style
+  sealed trait CookieStyle extends Style
+
+  object Style             extends Enum[Style] with CirceEnum[Style] {
+    override val values = findValues
+    case object simple extends PathStyle with HeaderStyle
+    case object label  extends PathStyle
+    case object matrix extends PathStyle
+
+    case object form           extends QueryStyle with CookieStyle
+    case object pipeDelimited  extends QueryStyle
+    case object spaceDelimited extends QueryStyle
   }
 }
 
@@ -187,6 +207,7 @@ sealed trait SwaggerValue {
 final case class SwaggerStringValue(
     format: Option[OpenApiFormat[SwaggerStringValue]] = None,
     default: Option[String] = None,
+    example: Option[String] = None,
     maxLength: Option[Int] = None,
     minLength: Option[Int] = None,
     pattern: Option[String] = None,
@@ -206,6 +227,7 @@ object SwaggerStringValue {
 final case class SwaggerNumberValue(
     format: Option[OpenApiFormat[SwaggerNumberValue]] = None,
     default: Option[BigDecimal] = None,
+    example: Option[BigDecimal] = None,
     maximum: Option[BigDecimal] = None,
     exclusiveMaximum: Boolean = false,
     minimum: Option[BigDecimal] = None,
@@ -219,6 +241,7 @@ object OpenApiNumberValue
 final case class SwaggerIntValue(
     format: Option[OpenApiFormat[SwaggerIntValue]] = None,
     default: Option[Int] = None,
+    example: Option[Int] = None,
     maximum: Option[Int] = None,
     exclusiveMaximum: Option[Boolean] = None,
     minimum: Option[Int] = None,

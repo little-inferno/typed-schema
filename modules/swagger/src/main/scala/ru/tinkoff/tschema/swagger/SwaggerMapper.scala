@@ -108,9 +108,11 @@ object SwaggerMapper extends SwaggerMapperInstances1 {
       OpenApiParam(
         name = name,
         in = in,
-        required = p.required,
+        required = p.cfg.required,
         schema = p.typ.some,
-        allowEmptyValue = flag
+        allowEmptyValue = flag,
+        style = p.cfg.style,
+        explode = p.cfg.explode
       )
 
     val parameters: List[OpenApiParam] = param match {
@@ -145,7 +147,7 @@ object SwaggerMapper extends SwaggerMapperInstances1 {
 
   implicit def deriveFormField[name: Name, p, T](implicit asParam: AsOpenApiParam[T]) =
     fromFunc[FormFieldAs[name, p, T]] {
-      def param(field: OpenApiParamInfo, name: String) = MakeFormField(name, field.typ, field.required)
+      def param(field: OpenApiParamInfo, name: String) = MakeFormField(name, field.typ, field.cfg.required)
 
       val params = asParam match {
         case ps: AsSingleOpenApiParam[T] => param(ps, Name[name].string)
