@@ -1,8 +1,8 @@
 package ru.tinkoff.tschema.utils
 
 import cats.Eval
-import tofu.optics.tags.{TagApply, TaggerObj}
-import tofu.optics.{Contains, PSubset, Subset, Update}
+import glass.tags.{TagApply, TaggerObj}
+import glass.{Contains, PSubset, Subset, Update}
 
 object optics {
   object _some extends TaggerObj[PSubset] {

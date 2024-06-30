@@ -17,8 +17,8 @@ import ru.tinkoff.tschema.swagger.SwaggerBuilder.EmptySwaggerBuilder
 import ru.tinkoff.tschema.swagger.SwaggerMapper.derivedParamAtom
 import ru.tinkoff.tschema.typeDSL._
 import ru.tinkoff.tschema.utils.optics._
-import tofu.optics.chain
-import tofu.optics.tags.at
+import glass.chain
+import glass.tags.at
 import shapeless.{Lazy, Witness}
 import ru.tinkoff.tschema.common.Name
 

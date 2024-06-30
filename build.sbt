@@ -37,12 +37,16 @@ ThisBuild / developers := List(
   Developer("odomontois", "Oleg Nizhnik", "odomontois@gmail.com", url("https://github.com/odomontois"))
 )
 
+ThisBuild / libraryDependencySchemes += "io.circe" %% "circe-core" % VersionScheme.Always
+
+
+
 val minorVersion = SettingKey[Int]("minor scala version")
 
 val scala212V = "2.12.15"
-val scala213V = "2.13.8"
+val scala213V = "2.13.14"
 
-val crossCompile = crossScalaVersions := List(scala212V, scala213V)
+val crossCompile = crossScalaVersions := List(scala213V)
 
 val commonScalacOptions = scalacOptions ++= List(
   "-deprecation",
@@ -83,7 +87,7 @@ val paradise = libraryDependencies ++= {
 val magnolia = libraryDependencies += "com.propensive" %% "magnolia" % Version.magnolia
 
 val tofuOptics =
-  libraryDependencies ++= List("core", "macro").map(module => "tf.tofu" %% s"tofu-optics-$module" % Version.tofu)
+  libraryDependencies ++= List("core", "macro").map(module => "tf.tofu" %% s"glass-$module" % Version.glass)
 
 val circe =
   libraryDependencies ++= List("core", "parser").map(module => "io.circe" %% s"circe-$module" % Version.circe) ++ List(
@@ -114,11 +118,11 @@ val scalatestScalacheck = "org.scalatestplus" %% "scalacheck-1-15" % Version.sca
 
 val akka   = List("actor", "stream").map(module => "com.typesafe.akka" %% s"akka-$module" % Version.akka)
 val zio    = List("dev.zio" %% "zio" % Version.zio, "dev.zio" %% "zio-interop-cats" % Version.zioCats)
-val tethys = List("core", "jackson").map(module => "com.tethys-json" %% s"tethys-$module" % Version.tethys)
+val tethys = List("core", "jackson213").map(module => "com.tethys-json" %% s"tethys-$module" % Version.tethys)
 
 val reflect          = libraryDependencies += scalaOrganization.value   % "scala-reflect"           % scalaVersion.value
 val compiler         = libraryDependencies += scalaOrganization.value   % "scala-compiler"          % scalaVersion.value
-val collectionCompat = libraryDependencies += "org.scala-lang.modules" %% "scala-collection-compat" % "2.6.0"
+val collectionCompat = libraryDependencies += "org.scala-lang.modules" %% "scala-collection-compat" % "2.9.0"
 
 val enumeratumCirce = "com.beachape" %% "enumeratum-circe" % Version.enumeratumCirce
 
@@ -179,6 +183,7 @@ lazy val swagger = project
     tofuOptics,
     paradise,
     circe,
+    libraryDependencies += "tf.tofu" %% "tofu-core-higher-kind" % Version.tofu
   )
 
 lazy val akkaHttp = project
@@ -244,14 +249,14 @@ lazy val finagleCommon = project
     moduleName := "typed-schema-finagle-common"
   )
 
-lazy val finagleEnv = project
-  .in(file("modules/finagle-env"))
-  .dependsOn(finagle)
-  .settings(
-    commonSettings,
-    moduleName := "typed-schema-finagle-env",
-    libraryDependencies ++= catsEffect :: env :: Nil
-  )
+//lazy val finagleEnv = project
+//  .in(file("modules/finagle-env"))
+//  .dependsOn(finagle)
+//  .settings(
+//    commonSettings,
+//    moduleName := "typed-schema-finagle-env",
+//    libraryDependencies ++= catsEffect :: env :: Nil
+//  )
 
 lazy val main = project
   .in(file("modules/main"))
@@ -320,7 +325,7 @@ lazy val typedschema =
       akkaHttp,
       finagle,
       finagleZio,
-      finagleEnv,
+//      finagleEnv,
       finagleCirce,
       finagleTethys,
       finagleCommon,

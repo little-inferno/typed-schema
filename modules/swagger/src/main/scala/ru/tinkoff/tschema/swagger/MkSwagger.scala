@@ -8,10 +8,10 @@ import ru.tinkoff.tschema.swagger.PathDescription.{DescriptionMap, TypeTarget}
 import ru.tinkoff.tschema.swagger.SwaggerBuilder.EmptySwaggerBuilder
 import ru.tinkoff.tschema.typeDSL._
 import ru.tinkoff.tschema.utils.optics
-import tofu.optics.functions.some
-import tofu.optics.macros.GenContains
-import tofu.optics.tags.every
-import tofu.optics.{Contains, Update}
+import glass.functions.some
+import glass.macros.GenContains
+import glass.tags.every
+import glass.{Contains, Update}
 
 import scala.annotation.implicitNotFound
 import scala.collection.immutable.TreeMap

@@ -9,8 +9,8 @@ import cats.syntax.vector._
 import io.circe._
 import io.circe.syntax._
 import io.circe.derivation._
-import tofu.optics.{Property, Subset, Update}
-import tofu.optics.macros.{GenContains, GenSubset}
+import glass.{Property, Subset, Update}
+import glass.macros.{GenContains, GenSubset}
 import ru.tinkoff.tschema.swagger.internal.merge._
 import ru.tinkoff.tschema.utils.json.Skippable
 import ru.tinkoff.tschema.utils.optics
@@ -18,7 +18,7 @@ import shapeless.tag.@@
 
 import scala.annotation.tailrec
 import scala.language.higherKinds
-import tofu.optics.Contains
+import glass.Contains
 
 sealed trait SwaggerType {
   def merge: PartialFunction[SwaggerType, SwaggerType] = PartialFunction.empty
@@ -93,7 +93,7 @@ final case class SwaggerArray(items: Eval[SwaggerType], minLength: Option[Int] =
   }
 }
 
-final case class SwaggerProperty(name: String, description: Option[String], typ: Eval[SwaggerType])
+final case class SwaggerProperty(name: String, description: Option[String], typ: Eval[SwaggerType], deprecated: Boolean = false)
 object SwaggerProperty {
   val description: Contains[SwaggerProperty, Option[String]] = GenContains[SwaggerProperty](_.description)
   val typ: Contains[SwaggerProperty, Eval[SwaggerType]]      = GenContains[SwaggerProperty](_.typ)
@@ -108,8 +108,8 @@ final case class SwaggerObject(
     val thisMap    = properties.map(prop => prop.name -> prop).toMap
     val thatMap    = p2.map(prop => prop.name -> prop).toMap
     val unionProps = (thisMap -- thatMap.keySet).values.toVector ++ thatMap.values.map {
-      case SwaggerProperty(name, descr, prop) =>
-        SwaggerProperty(name, descr, thisMap.get(name).map(_.typ.map2(prop)(_ or _)).getOrElse(prop))
+      case SwaggerProperty(name, descr, prop, depr) =>
+        SwaggerProperty(name, descr, thisMap.get(name).map(_.typ.map2(prop)(_ or _)).getOrElse(prop), depr)
     }
     val reqs       = required.map2(req2) { (r1, r2) =>
       r1.toSet.intersect(r2.toSet).toVector
@@ -281,13 +281,14 @@ object SwaggerType {
 
       case SwaggerObject(properties, required, discr) =>
         properties
-          .traverse[Eval, (String, Option[String], JsonObject)] { case SwaggerProperty(name, descr, prop) =>
-            prop.flatMap(encode).map(typ => (name, descr, typ.asJsonObject))
+          .traverse[Eval, (String, Option[String], JsonObject, Boolean)] { case SwaggerProperty(name, descr, prop, depr) =>
+            prop.flatMap(encode).map(typ => (name, descr, typ.asJsonObject, depr))
           }
           .map { enc =>
             val fields = enc.map {
-              case (name, None, obj)        => name -> obj.asJson
-              case (name, Some(descr), obj) => name -> obj.add("description", Json.fromString(descr)).asJson
+              case (name, None, obj, depr)        => name -> obj.add("deprecated", Json.fromBoolean(depr)).asJson
+              case (name, Some(descr), obj, depr) => name -> obj.add("description", Json.fromString(descr))
+                .add("deprecated", Json.fromBoolean(depr)).asJson
             }
 
             JsonObject(

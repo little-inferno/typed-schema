@@ -5,8 +5,8 @@ import io.circe._
 import io.circe.derivation._
 import io.circe.derivation.annotations._
 import io.circe.syntax._
-import tofu.optics.{Contains, Subset}
-import tofu.optics.macros.{GenContains, GenSubset}
+import glass.{Contains, Subset}
+import glass.macros.{GenContains, GenSubset}
 import ru.tinkoff.tschema.utils.json.CirceKeyEnum
 import ru.tinkoff.tschema.utils.json.circeSyntax._
 import ru.tinkoff.tschema.utils.json.circeCodecs._
@@ -107,7 +107,7 @@ sealed trait OpenApiFlow { self: Product =>
   val refreshUrl: Option[String] // TODO URL?
   val scopes: Map[String, String]
 }
-object OpenApiFlow       {
+object OpenApiFlow {
   @JsonCodec(encodeOnly) case class `implicit`(
       authorizationUrl: String,
       refreshUrl: Option[String],
@@ -408,7 +408,7 @@ final case class OpenApiResponse(
     headers: Map[String, OpenApiHeader] = TreeMap.empty
 )
 
-object OpenApiResponse {
+object OpenApiResponse  {
   val description: OpenApiResponse Contains Option[String]               = GenContains[OpenApiResponse](_.description)
   val content: OpenApiResponse Contains Map[MediaType, OpenApiMediaType] = GenContains[OpenApiResponse](_.content)
   val headers: OpenApiResponse Contains Map[String, OpenApiHeader]       = GenContains[OpenApiResponse](_.headers)

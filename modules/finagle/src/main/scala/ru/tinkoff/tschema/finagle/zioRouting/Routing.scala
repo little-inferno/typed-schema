@@ -1,10 +1,12 @@
 package ru.tinkoff.tschema.finagle
 package zioRouting
 
+import cats.ApplicativeThrow
 import cats.data.ReaderT
-import cats.effect.syntax.effect._
-import cats.effect.{Async, Effect, IO, Sync}
+import cats.effect.std.Dispatcher
+import cats.effect.Async
 import cats.syntax.applicative._
+import cats.syntax.flatMap._
 import cats.syntax.applicativeError._
 import cats.syntax.semigroup._
 import com.twitter
@@ -30,30 +32,35 @@ object Routing extends FInstanceDecl {
       : RoutedPlus[FHttp[F, *]] with ConvertService[FHttp[F, *]] with LiftHttp[FHttp[F, *], F] =
     new FRoutedConvert[F]
 
-  implicit def envRunnable[F[_]: Effect](implicit
+  implicit def envRunnable[F[_]: Async](implicit
       optRecover: OptRecover[FHttp[F, *]] = OptRecover.default[FHttp[F, *]]
   ): RunHttp[FHttp[F, *], F] = {
     implicit val recover: Recover[FHttp[F, *]] = optRecover.orDefault
-    zioResponse => Sync[F].delay(execResponse(zioResponse, _))
+    zioResponse => execResponse(zioResponse)
   }
 
-  private[this] def execResponse[F[_]: Effect](envResponse: FHttp[F, Response], request: Request)(implicit
+  private[this] def execResponse[F[_]: Async: ApplicativeThrow](envResponse: FHttp[F, Response])(implicit
       recover: Recover[FHttp[F, *]]
-  ): Future[Response] = {
-    val promise = Promise[Response]()
-    val routing = Routing(request, SubString(request.path), 0)
+  ): F[Service[Request, Response]] = {
+    Dispatcher.parallel[F].use { dispatcher =>
+      Async[F].delay { request =>
+        val promise = Promise[Response]()
+        val routing = Routing(request, SubString(request.path), 0)
 
-    envResponse.recoverWith { case Rejected(rej) => recover(rej) }.run(routing).runAsync {
-      case Right(res) => IO(promise.setValue(res))
-      case Left(ex)   =>
-        IO {
-          val resp = Response(Status.InternalServerError)
-          resp.setContentString(ex.getMessage)
-          promise.setValue(resp)
-        }
+        dispatcher.unsafeToFuture(
+          envResponse.recoverWith { case Rejected(rej) => recover(rej) }.run(routing).attempt.flatMap {
+            case Right(res) => Async[F].pure(promise.setValue(res))
+            case Left(ex)   =>
+              Async[F].pure {
+                val resp = Response(Status.InternalServerError)
+                resp.setContentString(ex.getMessage)
+                promise.setValue(resp)
+              }
+          }
+        )
+        promise
+      }
     }
-
-    promise
   }
 
 }
@@ -82,7 +89,7 @@ private[finagle] class FInstanceDecl {
 
     def convertService[A](svc: Service[http.Request, A]): F[A] =
       ReaderT(r =>
-        Async[G].async(cb =>
+        Async[G].async_(cb =>
           svc(r.request).respond {
             case twitter.util.Return(a) => cb(Right(a))
             case twitter.util.Throw(ex) => cb(Left(ex))

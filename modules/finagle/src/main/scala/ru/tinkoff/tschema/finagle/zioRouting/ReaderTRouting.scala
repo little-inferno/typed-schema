@@ -1,9 +1,11 @@
 package ru.tinkoff.tschema.finagle.zioRouting
 
+import cats.ApplicativeThrow
 import cats.data.ReaderT
-import cats.effect.syntax.effect._
-import cats.effect.{Async, Effect, IO, Sync}
+import cats.effect.std.Dispatcher
+import cats.effect.Async
 import cats.syntax.applicative._
+import cats.syntax.flatMap._
 import cats.syntax.applicativeError._
 import cats.syntax.semigroup._
 import com.twitter
@@ -30,31 +32,36 @@ object ReaderTRouting extends ReaderTInstanceDecl {
     with ConvertService[ReaderHttp[F, R, *]] with LiftHttp[ReaderHttp[F, R, *], ReaderT[F, R, *]] =
     new ReaderTRoutedConvert[F, R]
 
-  implicit def envRunnable[F[_]: Effect, R](implicit
+  implicit def envRunnable[F[_]: Async, R](implicit
       optRecover: OptRecover[ReaderHttp[F, R, *]] = OptRecover.default[ReaderHttp[F, R, *]]
   ): RunHttp[ReaderHttp[F, R, *], ReaderT[F, R, *]] = {
     implicit val rec: Recover[ReaderHttp[F, R, *]] = optRecover.orDefault
-    response => ReaderT(r => Sync[F].delay(execResponse(r, response, _)))
+    response => ReaderT(r => execResponse(r, response))
   }
 
-  private[this] def execResponse[F[_]: Effect, R](r: R, envResponse: ReaderHttp[F, R, Response], request: Request)(
+  private[this] def execResponse[F[_]: Async: ApplicativeThrow, R](r: R, envResponse: ReaderHttp[F, R, Response])(
       implicit recover: Recover[ReaderHttp[F, R, *]]
-  ): Future[Response] = {
-    val promise = Promise[Response]()
-    val routing = ReaderTRouting(request, SubString(request.path), 0, r)
+  ): F[Service[Request, Response]] = {
+    Dispatcher.parallel[F].use { dispatcher =>
+      Async[F].delay { request =>
+        val promise = Promise[Response]()
+        val routing = ReaderTRouting(request, SubString(request.path), 0, r)
 
-    envResponse.recoverWith { case Rejected(rej) => recover(rej) }.run(routing).runAsync {
-      case Right(res) => IO(promise.setValue(res))
-      case Left(ex)   =>
-        IO {
-          val resp    = Response(Status.InternalServerError)
-          val message = Option(ex.getLocalizedMessage).getOrElse(ex.toString)
-          resp.setContentString(message)
-          promise.setValue(resp)
-        }
+        dispatcher.unsafeToFuture(
+          envResponse.recoverWith { case Rejected(rej) => recover(rej) }.run(routing).attempt.flatMap {
+            case Right(res) => Async[F].pure(promise.setValue(res))
+            case Left(ex) =>
+              Async[F].pure {
+                val resp = Response(Status.InternalServerError)
+                val message = Option(ex.getLocalizedMessage).getOrElse(ex.toString)
+                resp.setContentString(message)
+                promise.setValue(resp)
+              }
+          }
+        )
+        promise
+      }
     }
-
-    promise
   }
 }
 
@@ -82,7 +89,7 @@ private[finagle] class ReaderTInstanceDecl {
 
     def convertService[A](svc: Service[http.Request, A]): F[A] =
       ReaderT(r =>
-        Async[G].async(cb =>
+        Async[G].async_(cb =>
           svc(r.request).respond {
             case twitter.util.Return(a) => cb(Right(a))
             case twitter.util.Throw(ex) => cb(Left(ex))

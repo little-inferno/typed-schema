@@ -7,19 +7,20 @@ import ru.tinkoff.tschema.finagle.zioRouting.Fail
 import ru.tinkoff.tschema.finagle.{Rejection, Routed, RoutedPlus}
 import zio.ZIO
 import cats.syntax.monoid._
+import izumi.reflect.Tag
 
 private[zioRouting] class ZiosRoutedInstance[R, E] extends RoutedPlus[ZIOH[R, E, *]] {
   private type F[a] = ZIOH[R, E, a]
   implicit private[this] val self: RoutedPlus[F] = this
   implicit private[this] val monad: Monad[F]     = zio.interop.catz.monadErrorInstance
 
-  def matched: F[Int] = ZIO.access(_.get.matched)
+  def matched: F[Int] = ZIO.serviceWith[ZRouting](_.matched)
 
   def withMatched[A](m: Int, fa: F[A]): F[A] =
-    fa.provideSome(r => r add r.get.copy(matched = m))
+    fa.provideSomeEnvironment(r => r.add[ZRouting](r.get[ZRouting].copy(matched = m)))
 
-  def path: F[CharSequence]                 = ZIO.access(_.get.path)
-  def request: F[http.Request]              = ZIO.access(_.get.request)
+  def path: F[CharSequence]                 = ZIO.serviceWith[ZRouting](_.path)
+  def request: F[http.Request]              = ZIO.serviceWith[ZRouting](_.request)
   def reject[A](rejection: Rejection): F[A] =
     Routed.unmatchedPath[F].flatMap(path => throwRej(rejection withPath path.toString))
 

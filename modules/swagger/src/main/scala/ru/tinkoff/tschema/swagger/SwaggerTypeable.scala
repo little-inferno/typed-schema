@@ -15,13 +15,13 @@ import magnolia.{CaseClass, Magnolia, SealedTrait, TypeName}
 import cats.syntax.traverse._
 import derevo.Derivation
 import enumeratum.values.{ValueEnum, ValueEnumEntry}
-import tofu.optics.Contains
+import glass.Contains
+import glass.compat.LazySeq
 import ru.tinkoff.tschema.common.Name
 import ru.tinkoff.tschema.utils.transform
 
 import scala.collection.{immutable, mutable}
 import scala.reflect.runtime.universe.TypeTag
-import tofu.compat.{LazySeq, NELazySeq}
 
 trait SwaggerTypeable[T] {
   self =>
@@ -142,8 +142,6 @@ trait SwaggerTypeableInstances
   final implicit def swaggerNEListTypeable[T: SwaggerTypeable]: SwaggerTypeable[NonEmptyList[T]]     =
     neseq[NonEmptyList, T]
   final implicit def swaggerNESetTypeable[T: SwaggerTypeable]: SwaggerTypeable[NonEmptySet[T]]       = neseq[NonEmptySet, T]
-  final implicit def swaggerNEStreamTypeable[T: SwaggerTypeable]: SwaggerTypeable[NELazySeq[T]]      =
-    neseq[NELazySeq, T]
   final implicit def swaggerNEChainTypeable[T: SwaggerTypeable]: SwaggerTypeable[NonEmptyChain[T]]   =
     neseq[NonEmptyChain, T]
 
